@@ -1,0 +1,22 @@
+[package]
+name = "milstrike7"
+version = "0.1.0"
+authors = ["Jack Foltz <jack@foltz.io>"]
+edition = "2021"
+
+[dependencies]
+lib = { package = "phantoma", path = "../phantoma" }
+log = "0.4"
+
+cpal = "0.13"
+rodio = "0.15"
+rustfft = "6"
+apodize = "1"
+apres = "0.3"
+
+anyhow = "1"
+parking_lot = "0.12"
+itertools = "0.10"
+rand = "0.8"
+async-trait = "0.1"
+bincode = "2.0.0-rc.1"
