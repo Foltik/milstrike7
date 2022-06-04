@@ -13,6 +13,7 @@ rodio = "0.15"
 rustfft = "6"
 apodize = "1"
 apres = "0.3"
+rubato = "0.12"
 
 anyhow = "1"
 parking_lot = "0.12"
