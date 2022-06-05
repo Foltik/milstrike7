@@ -5,7 +5,7 @@ use std::{
     io::{BufReader, BufWriter}, path::Path,
 };
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone, Copy)]
 pub enum Event {
     // Trigger
     Kick,
@@ -30,7 +30,7 @@ pub struct Metadata {
     pub peak_rms: f32,
 }
 
-#[derive(Encode, Decode, Debug)]
+#[derive(Encode, Decode, Debug, Clone, Copy)]
 pub struct Data {
     pub rms: f32,
 }

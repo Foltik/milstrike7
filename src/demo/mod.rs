@@ -20,14 +20,14 @@ pub struct Player {
     t: f32,
     rms: f32,
 
-    event_buffer: VecDeque<Event>,
+    data_idx: usize,
+    events_idx: usize,
+    events_buffer: VecDeque<Event>,
 }
 
 impl Player {
     pub fn new(file: &str, start: f32) -> Result<Self> {
-        let Demo { meta, audio, mut events, mut data } = Demo::load_bytes(&lib::resource::read(file))?;
-        events.reverse();
-        data.reverse();
+        let Demo { meta, audio, events, data } = Demo::load_bytes(&lib::resource::read(file))?;
 
         let stream = Stream::new(meta, audio, start)?;
 
@@ -42,18 +42,24 @@ impl Player {
             t: start,
             rms: 0.0,
 
-            event_buffer: VecDeque::new(),
+            data_idx: 0,
+            events_idx: 0,
+            events_buffer: VecDeque::new(),
         })
     }
 
     pub fn update(&mut self, dt: f32) {
         if self.playing {
-            while self.data.len() != 0 && self.data.last().unwrap().0 <= self.t {
-                self.rms = self.data.pop().unwrap().1.rms;
+            // Update data stream
+            while self.data_idx < self.data.len() && self.data[self.data_idx].0 <= self.t {
+                self.rms = self.data[self.data_idx].1.rms;
+                self.data_idx += 1;
             }
 
-            while self.events.len() != 0 && self.events.last().unwrap().0 <= self.t {
-                self.event_buffer.push_back(self.events.pop().unwrap().1);
+            // Update event stream
+            while self.events_idx < self.events.len() && self.events[self.events_idx].0 <= self.t {
+                self.events_buffer.push_back(self.events[self.events_idx].1);
+                self.events_idx += 1;
             }
 
             self.t = self.t + dt;
@@ -61,7 +67,29 @@ impl Player {
     }
 
     pub fn events(&mut self) -> impl Iterator<Item = Event> + '_ {
-        self.event_buffer.drain(..)
+        self.events_buffer.drain(..)
+    }
+
+    pub fn events_after(&self, t: f32) -> impl Iterator<Item = (f32, Event)> + '_ {
+        let mut lo = 0;
+        let mut hi = self.events.len() - 1;
+
+        while lo < hi {
+            let mid = (lo + hi) / 2;
+            let et = self.events[mid].0;
+
+            if et < t {
+                lo = mid + 1;
+            } else if et > t {
+                hi = mid;
+            }
+        }
+
+        self.events[lo..].iter().cloned()
+    }
+
+    pub fn events_range(&self, start: f32, end: f32) -> impl Iterator<Item = (f32, Event)> + '_ {
+        self.events_after(start).take_while(move |(t, _)| *t <= end)
     }
 
     pub fn t(&self) -> f32 {
