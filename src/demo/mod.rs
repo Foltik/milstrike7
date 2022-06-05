@@ -6,6 +6,9 @@ mod format; pub use format::{Demo, Metadata, Event, Data};
 mod audio; use audio::Stream;
 mod midi;
 
+#[cfg(test)]
+mod audio_test;
+
 pub struct Player {
     meta: Metadata,
 
