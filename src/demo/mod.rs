@@ -71,21 +71,8 @@ impl Player {
     }
 
     pub fn events_after(&self, t: f32) -> impl Iterator<Item = (f32, Event)> + '_ {
-        let mut lo = 0;
-        let mut hi = self.events.len() - 1;
-
-        while lo < hi {
-            let mid = (lo + hi) / 2;
-            let et = self.events[mid].0;
-
-            if et < t {
-                lo = mid + 1;
-            } else if et > t {
-                hi = mid;
-            }
-        }
-
-        self.events[lo..].iter().cloned()
+        let idx = self.events.partition_point(|(et, _)| *et >= t);
+        self.events[idx..].iter().cloned()
     }
 
     pub fn events_range(&self, start: f32, end: f32) -> impl Iterator<Item = (f32, Event)> + '_ {
