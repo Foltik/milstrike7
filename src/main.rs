@@ -9,10 +9,10 @@ use anyhow::{Context, Result};
 use lib::{prelude::*, window::WindowBuilder};
 
 mod pipeline;
-mod scenes;
+mod stages;
 
 mod demo;
-use demo::{Demo, Player, Scene, Scenes};
+use demo::{Demo, Player, Stage, Stages};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -53,12 +53,14 @@ async fn model(app: &App) -> Model {
         None => 0.0,
     };
 
-    let mut scenes: HashMap<&'static str, Box<dyn Scene + Send>> = HashMap::new();
-    scenes.insert("test_segments", Box::new(scenes::TestSegments::new(device)));
-    scenes.insert("test1", Box::new(scenes::Test1::new(device)));
-    scenes.insert("test2", Box::new(scenes::Test2::new(device)));
+    let mut stages: HashMap<&'static str, Box<dyn Stage + Send>> = HashMap::new();
+    stages.insert("test_segments", Box::new(stages::TestSegments::new(device)));
+    stages.insert("test1", Box::new(stages::Test1::new(device)));
+    stages.insert("test2", Box::new(stages::Test2::new(device)));
+    stages.insert("cyber_grind", Box::new(stages::CyberGrind::new(device)));
+    stages.insert("funky_beat", Box::new(stages::FunkyBeat::new(device)));
 
-    let player = Player::new("ms7.dem", t0, "test_segments", scenes).expect("failed to load demo");
+    let player = Player::new("ms7.dem", t0, "cyber_grind", stages).expect("failed to load demo");
 
     Model { player }
 }

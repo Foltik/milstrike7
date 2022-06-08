@@ -11,8 +11,8 @@ use std::{
 mod format;
 pub use format::{Data, Demo, Event, Metadata};
 
-mod scene;
-pub use scene::{Scene, Scenes};
+mod stage;
+pub use stage::{Stage, Stages};
 
 mod audio;
 use audio::Stream;
@@ -23,13 +23,13 @@ mod midi;
 mod audio_test;
 
 pub struct Player {
-    scenes: Option<Scenes>,
+    stages: Option<Stages>,
     stream: Arc<Stream>,
 
     playing: bool,
     t: f32,
     rms: f32,
-    next_scene: Option<&'static str>,
+    next_stage: Option<&'static str>,
 
     meta: Metadata,
     events: Vec<(f32, Event)>,
@@ -42,8 +42,8 @@ impl Player {
     pub fn new(
         file: &str,
         t0: f32,
-        scene0: &'static str,
-        scenes: HashMap<&'static str, Box<dyn Scene + Send>>,
+        stage0: &'static str,
+        stages: HashMap<&'static str, Box<dyn Stage + Send>>,
     ) -> Result<Self> {
         let Demo {
             meta,
@@ -55,13 +55,13 @@ impl Player {
         let stream = Arc::new(Stream::new(meta, audio, t0)?);
 
         Ok(Self {
-            scenes: Some(Scenes::new(scene0, scenes)),
+            stages: Some(Stages::new(stage0, stages)),
             stream,
 
             playing: false,
             t: t0,
             rms: 0.0,
-            next_scene: None,
+            next_stage: None,
 
             meta,
             events,
@@ -72,12 +72,12 @@ impl Player {
     }
 
     pub async fn key(&mut self, state: KeyState, key: Key) {
-        self.scenes = Some(self.scenes.take().unwrap().key(self, state, key).await);
+        self.stages = Some(self.stages.take().unwrap().key(self, state, key).await);
     }
 
     pub async fn update(&mut self, dt: f32) {
-        if let Some(next) = self.next_scene.take() {
-            self.scenes = Some(self.scenes.take().unwrap().go(self, next).await);
+        if let Some(next) = self.next_stage.take() {
+            self.stages = Some(self.stages.take().unwrap().go(self, next).await);
         }
 
         let mut events = SmallVec::<[Event; 8]>::new();
@@ -101,14 +101,14 @@ impl Player {
         // Dispatch events
         for ev in events.into_iter().rev() {
             log::debug!("Event: {:?}", ev);
-            self.scenes = Some(self.scenes.take().unwrap().event(self, ev).await);
+            self.stages = Some(self.stages.take().unwrap().event(self, ev).await);
         }
 
-        self.scenes = Some(self.scenes.take().unwrap().update(self, dt).await);
+        self.stages = Some(self.stages.take().unwrap().update(self, dt).await);
     }
 
     pub fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView) {
-        self.scenes = Some(self.scenes.take().unwrap().view(frame, view));
+        self.stages = Some(self.stages.take().unwrap().view(frame, view));
     }
 
     pub fn play(&mut self) {
@@ -119,7 +119,7 @@ impl Player {
     }
 
     pub async fn go(&mut self, to: &'static str) {
-        self.next_scene = Some(to);
+        self.next_stage = Some(to);
     }
 
     pub fn events<'a>(

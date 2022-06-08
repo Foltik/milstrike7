@@ -6,7 +6,7 @@ use lib::prelude::*;
 use super::{Event, Player};
 
 #[async_trait]
-pub trait Scene {
+pub trait Stage {
     async fn init(&mut self, p: &mut Player);
     async fn update(&mut self, p: &mut Player, dt: f32);
 
@@ -16,15 +16,15 @@ pub trait Scene {
     fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView);
 }
 
-pub struct Scenes {
+pub struct Stages {
     current: &'static str,
-    scenes: HashMap<&'static str, Box<dyn Scene + Send>>,
+    scenes: HashMap<&'static str, Box<dyn Stage + Send>>,
 }
 
-impl Scenes {
+impl Stages {
     pub fn new(
         initial: &'static str,
-        scenes: HashMap<&'static str, Box<dyn Scene + Send>>,
+        scenes: HashMap<&'static str, Box<dyn Stage + Send>>,
     ) -> Self {
         Self {
             current: initial,
@@ -32,7 +32,7 @@ impl Scenes {
         }
     }
 
-    fn current(&mut self) -> &mut Box<dyn Scene + Send> {
+    fn current(&mut self) -> &mut Box<dyn Stage + Send> {
         self.scenes.get_mut(self.current).unwrap()
     }
 

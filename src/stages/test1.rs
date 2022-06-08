@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use lib::prelude::*;
 
-use crate::demo::{Event, Player, Scene};
+use crate::demo::{Event, Player, Stage};
 use crate::pipeline::{IsoTri, IsoTriPass};
 
 pub struct Test1 {
@@ -37,7 +37,7 @@ impl Test1 {
 }
 
 #[async_trait]
-impl Scene for Test1 {
+impl Stage for Test1 {
     async fn init(&mut self, p: &mut Player) {}
 
     async fn update(&mut self, p: &mut Player, dt: f32) {

@@ -2,18 +2,26 @@ use lib::prelude::*;
 use async_trait::async_trait;
 
 use crate::pipeline::{IsoTriPass, IsoTri};
-use crate::demo::{Event, Player, Scene};
+use crate::demo::{Event, Player, Stage};
 
-pub struct Test2 {
+pub struct TestSegments {
     strobe: Decay,
     beat: Decay,
     t: f32,
     t_mul: f32,
 
-    tri: IsoTriPass,
+    segment: Segment,
+
+    tri1: IsoTriPass,
+    tri2: IsoTriPass,
 }
 
-impl Test2 {
+enum Segment {
+    Tri1,
+    Tri2,
+}
+
+impl TestSegments {
     pub fn new(device: &wgpu::Device) -> Self {
         Self {
             strobe: Decay::new(25.0),
@@ -21,7 +29,17 @@ impl Test2 {
             t: 0.0,
             t_mul: 1.0,
 
-            tri: IsoTriPass::new(device, IsoTri {
+            segment: Segment::Tri1,
+
+            tri1: IsoTriPass::new(device, IsoTri {
+                color: [1.0, 0.5, 0.0],
+                aspect: 9.0 / 16.0,
+                t: 0.0,
+                r: 0.0,
+                weight: 0.5,
+                thickness: 0.5,
+            }),
+            tri2: IsoTriPass::new(device, IsoTri {
                 color: [0.6, 0.0, 0.8],
                 aspect: 9.0 / 16.0,
                 t: 0.0,
@@ -34,22 +52,29 @@ impl Test2 {
 }
 
 #[async_trait]
-impl Scene for Test2 {
+impl Stage for TestSegments {
     async fn init(&mut self, p: &mut Player) {}
 
     async fn update(&mut self, p: &mut Player, dt: f32) {
         self.t += 250.0 * p.rms() * self.t_mul * dt;
 
-        self.tri.update(self.t);
+        let tri = match self.segment {
+            Segment::Tri1 => &mut self.tri1,
+            Segment::Tri2 => &mut self.tri2,
+        };
+
+        tri.update(self.t);
         self.beat.update(dt);
         self.strobe.update(dt);
 
         if self.beat.off() {
-            self.tri.thickness = 0.5 + 0.5 * self.strobe.v();
+            tri.r = 0.0;
+            tri.thickness = 0.5 + 0.5 * self.strobe.v();
+            tri.weight = 0.5;
         } else {
-            self.tri.r = self.beat.v();
-            self.tri.thickness = 0.5 + self.beat.v();
-            self.tri.weight = 0.5 + 0.5 * self.beat.v();
+            tri.r = self.beat.v();
+            tri.thickness = 0.5 + self.beat.v();
+            tri.weight = 0.5 + 0.5 * self.beat.v();
         }
     }
 
@@ -68,12 +93,18 @@ impl Scene for Test2 {
         }
 
         match key {
-            Key::Return => p.go("test1").await,
+            Key::Return => match self.segment {
+                Segment::Tri1 => self.segment = Segment::Tri2,
+                Segment::Tri2 => self.segment = Segment::Tri1,
+            },
             _ => {}
         }
     }
 
     fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView) {
-        self.tri.encode(frame, view);
+        match self.segment {
+            Segment::Tri1 => self.tri1.encode(frame, view),
+            Segment::Tri2 => self.tri2.encode(frame, view),
+        }
     }
 }
