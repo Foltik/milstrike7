@@ -3,22 +3,26 @@
 #![allow(unused_variables)]
 #![allow(unused_imports)]
 
+use std::collections::HashMap;
+
+use anyhow::{Context, Result};
 use lib::{prelude::*, window::WindowBuilder};
-use anyhow::{Result, Context};
 
 mod pipeline;
 mod scenes;
 
-mod demo; use demo::{Player, Demo};
-mod dispatch; use dispatch::Dispatch;
+mod demo;
+use demo::{Demo, Player, Scene, Scenes};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
-
     if args.len() < 3 {
         lib::app::run(window, model, input, update, view)?;
     } else {
-        Demo::new(&args[1], &args[2])?.save("resources/demos/ms7.dem")?;
+        let audio_file = &args[1];
+        let midi_file = &args[2];
+        let demo_file = "resources/demos/ms7.dem";
+        Demo::new(audio_file, midi_file)?.save(demo_file)?;
     }
 
     Ok(())
@@ -26,64 +30,55 @@ fn main() -> Result<()> {
 
 pub struct Model {
     player: Player,
-    dispatch: Option<Dispatch>,
 }
 
-impl Model {
-    pub fn t(&self) -> f32 {
-        self.player.t()
+fn window(mut window: WindowBuilder) -> WindowBuilder {
+    window = window.title("Millenium Strike 7");
+
+    if let Some(_) = std::env::args().find(|arg| arg.starts_with("-f")) {
+        window = window.fullscreen();
     }
 
-    pub fn rms(&self) -> f32 {
-        self.player.rms()
-    }
-}
-
-fn window(window: WindowBuilder) -> WindowBuilder {
-    window.title("Millenium Strike 7")
-        // .fullscreen()
+    window
 }
 
 async fn model(app: &App) -> Model {
     let device = &app.device;
 
-    let args: Vec<String> = std::env::args().collect();
-    let start: f32 = if args.len() == 1 {
-        0.0
-    } else {
-        args[1].parse().unwrap()
+    let t0 = match std::env::args().find(|arg| arg.starts_with("--t0=")) {
+        Some(arg) => match arg.split('=').collect_tuple() {
+            Some((_, t0)) => t0.parse::<f32>().unwrap(),
+            _ => 0.0,
+        },
+        None => 0.0,
     };
 
-    Model {
-        player: Player::new("ms7.dem", start).expect("failed to load demo"),
-        dispatch: Some(Dispatch::new(device, vec![
-            Box::new(scenes::Test::new(device))
-        ]))
-    }
+    let mut scenes: HashMap<&'static str, Box<dyn Scene + Send>> = HashMap::new();
+    scenes.insert("test_segments", Box::new(scenes::TestSegments::new(device)));
+    scenes.insert("test1", Box::new(scenes::Test1::new(device)));
+    scenes.insert("test2", Box::new(scenes::Test2::new(device)));
+
+    let player = Player::new("ms7.dem", t0, "test_segments", scenes).expect("failed to load demo");
+
+    Model { player }
 }
 
 async fn input(app: &App, m: &mut Model, state: KeyState, key: Key) {
-    if state != KeyState::Pressed { return; }
+    if state != KeyState::Pressed {
+        return;
+    }
 
     match key {
         Key::Space => m.player.play(),
         Key::Q => app.exit(),
-        _ => {}
+        _ => m.player.key(state, key).await,
     }
 }
 
 async fn update(app: &App, m: &mut Model, dt: f32) {
-    m.player.update(dt);
-
-    let events = m.player.events().collect::<Vec<_>>();
-    for ev in events {
-        log::debug!("Event: {:?}", ev);
-        m.dispatch = Some(m.dispatch.take().unwrap().midi(app, m, ev).await);
-    }
-    
-    m.dispatch = Some(m.dispatch.take().unwrap().update(app, m, dt).await);
+    m.player.update(dt).await;
 }
 
 fn view(_app: &App, m: &mut Model, frame: &mut Frame, view: &wgpu::RawTextureView) {
-    m.dispatch = Some(m.dispatch.take().unwrap().encode(frame, view));
+    m.player.view(frame, view);
 }

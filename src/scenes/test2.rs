@@ -1,12 +1,10 @@
 use lib::prelude::*;
 use async_trait::async_trait;
 
-use crate::Model;
-use crate::dispatch::Render;
 use crate::pipeline::{IsoTriPass, IsoTri};
-use crate::demo::Event;
+use crate::demo::{Event, Player, Scene};
 
-pub struct Test {
+pub struct Test2 {
     strobe: Decay,
     beat: Decay,
     t: f32,
@@ -15,7 +13,7 @@ pub struct Test {
     tri: IsoTriPass,
 }
 
-impl Test {
+impl Test2 {
     pub fn new(device: &wgpu::Device) -> Self {
         Self {
             strobe: Decay::new(25.0),
@@ -24,7 +22,7 @@ impl Test {
             t_mul: 1.0,
 
             tri: IsoTriPass::new(device, IsoTri {
-                color: [1.0, 0.5, 0.0],
+                color: [0.6, 0.0, 0.8],
                 aspect: 9.0 / 16.0,
                 t: 0.0,
                 r: 0.0,
@@ -36,11 +34,11 @@ impl Test {
 }
 
 #[async_trait]
-impl Render for Test {
-    async fn init(&mut self, _app: &App, m: &mut Model) {}
+impl Scene for Test2 {
+    async fn init(&mut self, p: &mut Player) {}
 
-    async fn update(&mut self, _app: &App, m: &mut Model, dt: f32) {
-        self.t += 250.0 * m.rms() * self.t_mul * dt;
+    async fn update(&mut self, p: &mut Player, dt: f32) {
+        self.t += 250.0 * p.rms() * self.t_mul * dt;
 
         self.tri.update(self.t);
         self.beat.update(dt);
@@ -55,12 +53,23 @@ impl Render for Test {
         }
     }
 
-    async fn midi(&mut self, _app: &App, m: &mut Model, ev: Event) {
+    async fn event(&mut self, p: &mut Player, ev: Event) {
         match ev {
             Event::Snare => self.strobe.set(),
             Event::Kick => self.beat.set(),
             Event::Strobe => self.t_mul = 3.0,
             _ => {},
+        }
+    }
+
+    async fn key(&mut self, p: &mut Player, state: KeyState, key: Key) {
+        if state != KeyState::Pressed {
+            return;
+        }
+
+        match key {
+            Key::Return => p.go("test1").await,
+            _ => {}
         }
     }
 

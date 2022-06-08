@@ -1,82 +1,141 @@
-use std::collections::VecDeque;
-use parking_lot::{Condvar, Mutex};
 use anyhow::Result;
+use lib::prelude::*;
+use parking_lot::{Condvar, Mutex};
+use smallvec::SmallVec;
+use std::{
+    collections::{HashMap, VecDeque},
+    ops::RangeBounds,
+    sync::Arc,
+};
 
-mod format; pub use format::{Demo, Metadata, Event, Data};
-mod audio; use audio::Stream;
+mod format;
+pub use format::{Data, Demo, Event, Metadata};
+
+mod scene;
+pub use scene::{Scene, Scenes};
+
+mod audio;
+use audio::Stream;
+
 mod midi;
 
 #[cfg(test)]
 mod audio_test;
 
 pub struct Player {
-    meta: Metadata,
-
-    stream: Stream,
-    events: Vec<(f32, Event)>,
-    data: Vec<(f32, Data)>,
+    scenes: Option<Scenes>,
+    stream: Arc<Stream>,
 
     playing: bool,
     t: f32,
     rms: f32,
+    next_scene: Option<&'static str>,
 
-    data_idx: usize,
-    events_idx: usize,
-    events_buffer: VecDeque<Event>,
+    meta: Metadata,
+    events: Vec<(f32, Event)>,
+    events_i: usize,
+    data: Vec<(f32, Data)>,
+    data_i: usize,
 }
 
 impl Player {
-    pub fn new(file: &str, start: f32) -> Result<Self> {
-        let Demo { meta, audio, events, data } = Demo::load_bytes(&lib::resource::read(file))?;
-
-        let stream = Stream::new(meta, audio, start)?;
-
-        Ok(Self {
+    pub fn new(
+        file: &str,
+        t0: f32,
+        scene0: &'static str,
+        scenes: HashMap<&'static str, Box<dyn Scene + Send>>,
+    ) -> Result<Self> {
+        let Demo {
             meta,
-
-            stream,
+            audio,
             events,
             data,
+        } = Demo::load_bytes(&lib::resource::read(file))?;
+
+        let stream = Arc::new(Stream::new(meta, audio, t0)?);
+
+        Ok(Self {
+            scenes: Some(Scenes::new(scene0, scenes)),
+            stream,
 
             playing: false,
-            t: start,
+            t: t0,
             rms: 0.0,
+            next_scene: None,
 
-            data_idx: 0,
-            events_idx: 0,
-            events_buffer: VecDeque::new(),
+            meta,
+            events,
+            events_i: 0,
+            data,
+            data_i: 0,
         })
     }
 
-    pub fn update(&mut self, dt: f32) {
+    pub async fn key(&mut self, state: KeyState, key: Key) {
+        self.scenes = Some(self.scenes.take().unwrap().key(self, state, key).await);
+    }
+
+    pub async fn update(&mut self, dt: f32) {
+        if let Some(next) = self.next_scene.take() {
+            self.scenes = Some(self.scenes.take().unwrap().go(self, next).await);
+        }
+
+        let mut events = SmallVec::<[Event; 8]>::new();
+
         if self.playing {
             // Update data stream
-            while self.data_idx < self.data.len() && self.data[self.data_idx].0 <= self.t {
-                self.rms = self.data[self.data_idx].1.rms;
-                self.data_idx += 1;
+            while self.data_i < self.data.len() && self.data[self.data_i].0 <= self.t {
+                self.rms = self.data[self.data_i].1.rms;
+                self.data_i += 1;
             }
 
             // Update event stream
-            while self.events_idx < self.events.len() && self.events[self.events_idx].0 <= self.t {
-                self.events_buffer.push_back(self.events[self.events_idx].1);
-                self.events_idx += 1;
+            while self.events_i < self.events.len() && self.events[self.events_i].0 <= self.t {
+                events.push(self.events[self.events_i].1);
+                self.events_i += 1;
             }
 
             self.t = self.t + dt;
         }
+
+        // Dispatch events
+        for ev in events.into_iter().rev() {
+            log::debug!("Event: {:?}", ev);
+            self.scenes = Some(self.scenes.take().unwrap().event(self, ev).await);
+        }
+
+        self.scenes = Some(self.scenes.take().unwrap().update(self, dt).await);
     }
 
-    pub fn events(&mut self) -> impl Iterator<Item = Event> + '_ {
-        self.events_buffer.drain(..)
+    pub fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView) {
+        self.scenes = Some(self.scenes.take().unwrap().view(frame, view));
     }
 
-    pub fn events_after(&self, t: f32) -> impl Iterator<Item = (f32, Event)> + '_ {
-        let idx = self.events.partition_point(|(et, _)| *et >= t);
-        self.events[idx..].iter().cloned()
+    pub fn play(&mut self) {
+        if !self.playing {
+            self.playing = true;
+            self.stream.play();
+        }
     }
 
-    pub fn events_range(&self, start: f32, end: f32) -> impl Iterator<Item = (f32, Event)> + '_ {
-        self.events_after(start).take_while(move |(t, _)| *t <= end)
+    pub async fn go(&mut self, to: &'static str) {
+        self.next_scene = Some(to);
+    }
+
+    pub fn events<'a>(
+        &'a self,
+        time_range: impl RangeBounds<f32> + 'a,
+    ) -> impl Iterator<Item = (f32, Event)> + 'a {
+        // Binary search to find the first event in the range
+        let first = self
+            .events
+            .partition_point(|(t, _)| !time_range.contains(t));
+
+        // Iterate until we get to an event no longer in the range
+        self.events[first..]
+            .iter()
+            .cloned()
+            .take_while(move |(t, _)| time_range.contains(t))
     }
 
     pub fn t(&self) -> f32 {
@@ -85,12 +144,5 @@ impl Player {
 
     pub fn rms(&self) -> f32 {
         self.rms
-    }
-
-    pub fn play(&mut self) {
-        if !self.playing {
-            self.playing = true;
-            self.stream.play();
-        }
     }
 }
