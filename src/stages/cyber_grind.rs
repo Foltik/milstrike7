@@ -57,7 +57,7 @@ impl Stage for CyberGrind {
         }
     }
 
-    fn view(&mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, view: &wgpu::RawTextureView) {
+    fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView) {
         match self.segment {
             Segment::Init => {
                 self.tube.encode(frame, view);

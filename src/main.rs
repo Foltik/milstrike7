@@ -83,6 +83,6 @@ async fn update(app: &App, m: &mut Model, dt: f32) {
     m.player.update(dt).await;
 }
 
-fn view(_app: &App, m: &mut Model, frame: &mut Frame, depth: &wgpu::RawTextureView, target: &wgpu::RawTextureView) {
-    m.player.view(frame, depth, target);
+fn view(_app: &App, m: &mut Model, frame: &mut Frame, target: &wgpu::RawTextureView) {
+    m.player.view(frame, target);
 }

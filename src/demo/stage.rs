@@ -13,7 +13,7 @@ pub trait Stage {
     async fn event(&mut self, p: &mut Player, ev: Event);
     async fn key(&mut self, p: &mut Player, state: KeyState, key: Key);
 
-    fn view(&mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, target: &wgpu::RawTextureView);
+    fn view(&mut self, frame: &mut Frame, target: &wgpu::RawTextureView);
 }
 
 pub struct Stages {
@@ -63,8 +63,8 @@ impl Stages {
         self
     }
 
-    pub fn view(mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, target: &wgpu::RawTextureView) -> Self {
-        self.current().view(frame, depth, target);
+    pub fn view(mut self, frame: &mut Frame, target: &wgpu::RawTextureView) -> Self {
+        self.current().view(frame, target);
         self
     }
 }
