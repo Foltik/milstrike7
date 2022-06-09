@@ -2,9 +2,9 @@ use std::cell::Cell;
 use std::ops::{Deref, DerefMut};
 
 use lib::gfx::frame::Frame;
-use lib::gfx::uniform::UniformStorage;
+// use lib::gfx::uniform::UniformStorage;
 use lib::gfx::wgpu;
-use lib::math::{Matrix4, SquareMatrix};
+// use lib::math::{Matrix4, SquareMatrix};
 
 pub struct BlitPass {
     pipeline: wgpu::RenderPipeline,
@@ -12,7 +12,7 @@ pub struct BlitPass {
 
     view: wgpu::TextureView,
     sampler: wgpu::Sampler,
-    uniform: UniformStorage<Matrix4>,
+    // uniform: UniformStorage<Matrix4>,
 
     dirty: Cell<bool>,
 }
@@ -24,7 +24,7 @@ impl BlitPass {
 
             texture: None,
             sampler: None,
-            transform: None,
+            // transform: None,
 
             clear: None,
             color_blend: None,
@@ -38,10 +38,10 @@ impl BlitPass {
     }
 
     pub fn encode(&self, frame: &mut Frame, target: &wgpu::RawTextureView) {
-        if self.dirty.get() {
-            self.uniform.upload(frame);
-            self.dirty.set(false);
-        }
+        // if self.dirty.get() {
+        //     self.uniform.upload(frame);
+        //     self.dirty.set(false);
+        // }
 
         let mut pass = wgpu::util::RenderPassBuilder::new()
             .color_attachment(target, |a| a)
@@ -58,7 +58,7 @@ pub struct BlitPassBuilder<'a> {
 
     texture: Option<wgpu::util::TextureBuilder<'a>>,
     sampler: Option<wgpu::util::SamplerBuilder<'a>>,
-    transform: Option<Matrix4>,
+    // transform: Option<Matrix4>,
 
     clear: Option<wgpu::Color>,
     color_blend: Option<wgpu::BlendComponent>,
@@ -85,10 +85,10 @@ impl<'a> BlitPassBuilder<'a> {
         self
     }
 
-    pub fn transform(mut self, matrix: Matrix4) -> Self {
-        self.transform = Some(matrix);
-        self
-    }
+    // pub fn transform(mut self, matrix: Matrix4) -> Self {
+    //     self.transform = Some(matrix);
+    //     self
+    // }
 
     pub fn color_blend(mut self, blend: wgpu::BlendComponent) -> Self {
         self.color_blend = Some(blend);
@@ -122,19 +122,19 @@ impl<'a> BlitPassBuilder<'a> {
             .unwrap_or_else(|| wgpu::util::SamplerBuilder::new(&name))
             .build(device);
 
-        let transform = self.transform.unwrap_or_else(|| Matrix4::identity());
-        let uniform = UniformStorage::new(device, &format!("{}_transform", name), transform);
+        // let transform = self.transform.unwrap_or_else(|| Matrix4::identity());
+        // let uniform = UniformStorage::new(device, &format!("{}_transform", name), transform);
 
         let layout = wgpu::util::BindGroupLayoutBuilder::new(&name)
             .tex(wgpu::ShaderStages::FRAGMENT)
             .sampler(wgpu::ShaderStages::FRAGMENT)
-            .uniform(wgpu::ShaderStages::FRAGMENT)
+            // .uniform(wgpu::ShaderStages::FRAGMENT)
             .build(device);
 
         let group = wgpu::util::BindGroupBuilder::new(&name)
             .texture(&texture)
             .sampler(&sampler)
-            .uniform(&uniform.uniform)
+            // .uniform(&uniform.uniform)
             .build(device, &layout);
 
         let vs = lib::resource::read_shader(&device, "billboard.vert.spv");
@@ -162,7 +162,7 @@ impl<'a> BlitPassBuilder<'a> {
 
             view: texture,
             sampler,
-            uniform,
+            // uniform,
 
             dirty: Cell::new(false),
         }

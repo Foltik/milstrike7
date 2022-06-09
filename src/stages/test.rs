@@ -17,7 +17,6 @@ impl Test {
     pub fn new(app: &App) -> Self {
         let scene = Phong::new(app, "test.glb", |_node| true, |_mat| true);
         let animator = Animator::new(&scene.scene);
-
         let blit = BlitPass::new("test")
             .build(&app.device);
 
@@ -40,11 +39,8 @@ impl Stage for Test {
         self.animator.update(p.t(), &mut self.scene.scene);
     }
 
-    async fn event(&mut self, p: &mut Player, ev: Event) {
-    }
-
-    async fn key(&mut self, p: &mut Player, state: KeyState, key: Key) {
-    }
+    async fn event(&mut self, p: &mut Player, ev: Event) {}
+    async fn key(&mut self, p: &mut Player, state: KeyState, key: Key) {}
 
     fn view(&mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, target: &wgpu::RawTextureView) {
         self.scene.encode(frame, self.blit.view());
