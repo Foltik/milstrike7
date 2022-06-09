@@ -8,6 +8,8 @@ pub struct CyberGrind {
     segment: Segment,
     t: f32,
     t_mul: f32,
+
+    tube: Phong,
 }
 
 enum Segment {
@@ -16,13 +18,17 @@ enum Segment {
 }
 
 impl CyberGrind {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(app: &App) -> Self {
+        let device = &app.device;
+
+        let tube = Phong::new(app, "tube.glb", |name| true, |mat| true);
+
         Self {
             segment: Segment::Init,
             t: 0.0,
             t_mul: 1.0,
 
-            // tube: Stage,
+            tube,
         }
     }
 }
@@ -51,9 +57,11 @@ impl Stage for CyberGrind {
         }
     }
 
-    fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView) {
+    fn view(&mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, view: &wgpu::RawTextureView) {
         match self.segment {
-            Segment::Init => {},
+            Segment::Init => {
+                self.tube.encode(frame, view);
+            },
         }
     }
 }

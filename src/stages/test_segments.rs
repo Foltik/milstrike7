@@ -101,7 +101,7 @@ impl Stage for TestSegments {
         }
     }
 
-    fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView) {
+    fn view(&mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, view: &wgpu::RawTextureView) {
         match self.segment {
             Segment::Tri1 => self.tri1.encode(frame, view),
             Segment::Tri2 => self.tri2.encode(frame, view),

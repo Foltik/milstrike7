@@ -40,10 +40,11 @@ impl Stream {
         };
 
         log::info!(
-            "using device: {:?}",
-            device.name().unwrap_or("unknown".into())
+            "Using audio device '{}' @ {:.1}kHz",
+            device.name().unwrap_or("unknown".into()),
+            default_config.sample_rate().0 as f32 / 1000.0
         );
-        log::info!("using output config: {:?}", default_config);
+        log::debug!("Using output config: {:?}", default_config);
         assert!(default_config.channels() == 2);
 
         let sample_rate_in = meta.sample_rate as usize;
@@ -128,7 +129,7 @@ impl Stream {
                 }
 
                 let buffer_size = output.len() / 2;
-                log::debug!("preflight: buffer size {} = {}", n, buffer_size);
+                log::trace!("preflight: buffer size {} = {}", n, buffer_size);
 
                 if n == 1 {
 
@@ -183,9 +184,9 @@ impl Resample {
             })
         } else {
             log::info!(
-                "resampling from {}kHz -> {}kHz",
-                rate_in,
-                rate_out
+                "Resampling from {:.1}kHz -> {:.1}kHz",
+                rate_in as f32 / 1000.0,
+                rate_out as f32 / 1000.0
             );
 
             let resampler = FftFixedOut::new(rate_in, rate_out, buffer_size, 2, 2)

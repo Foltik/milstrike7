@@ -76,7 +76,7 @@ impl Stage for Test1 {
         }
     }
 
-    fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView) {
+    fn view(&mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, view: &wgpu::RawTextureView) {
         self.tri.encode(frame, view);
     }
 }

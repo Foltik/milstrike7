@@ -107,8 +107,8 @@ impl Player {
         self.stages = Some(self.stages.take().unwrap().update(self, dt).await);
     }
 
-    pub fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView) {
-        self.stages = Some(self.stages.take().unwrap().view(frame, view));
+    pub fn view(&mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, view: &wgpu::RawTextureView) {
+        self.stages = Some(self.stages.take().unwrap().view(frame, depth, view));
     }
 
     pub fn play(&mut self) {

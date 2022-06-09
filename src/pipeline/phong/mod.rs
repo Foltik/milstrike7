@@ -9,29 +9,37 @@ mod material;
 use material::Material;
 
 pub struct Phong {
-    pub layout: wgpu::BindGroupLayout,
+    pipeline: wgpu::RenderPipeline,
+    depth: wgpu::TextureView,
+    pub mat_layout: wgpu::BindGroupLayout,
     pub sampler: wgpu::Sampler,
 
+    pub scene: Scene,
     pub mats: Vec<Material>,
     pub meshes: Vec<Vec<usize>>,
-
-    pipeline: wgpu::RenderPipeline,
 }
 
 impl Phong {
-    pub fn new<NodeFn, MatFn>(app: &App, scene: &Scene, mut node_filter: NodeFn, mut mat_filter: MatFn) -> Self
+    pub fn new<NodeFn, MatFn>(app: &App, scene: &str, mut node_filter: NodeFn, mut mat_filter: MatFn) -> Self
     where
         NodeFn: FnMut(&str) -> bool,
         MatFn: FnMut(&str) -> bool,
     {
+        let scene = lib::resource::read_scene(&app.device, scene);
+
         let vs = lib::resource::read_shader(&app.device, "phong.vert.spv");
         let fs = lib::resource::read_shader(&app.device, "phong.frag.spv");
 
-        let layout = wgpu::util::BindGroupLayoutBuilder::new("phong")
+        let mat_layout = wgpu::util::BindGroupLayoutBuilder::new("phong")
             .tex(wgpu::ShaderStages::FRAGMENT)
             .sampler(wgpu::ShaderStages::FRAGMENT)
             .uniform(wgpu::ShaderStages::FRAGMENT)
             .build(&app.device);
+
+        let depth = wgpu::util::TextureBuilder::new_depth("phong_depth")
+            .build(&app.device)
+            .view()
+            .build();
 
         let sampler = wgpu::util::SamplerBuilder::new("phong")
             .address_mode(wgpu::AddressMode::Repeat)
@@ -41,13 +49,12 @@ impl Phong {
         let pipeline = wgpu::util::PipelineBuilder::new("phong")
             .with_layout(&scene.cam_layout)
             .with_layout(&scene.light_layout)
-            .with_layout(&layout)
+            .with_layout(&mat_layout)
             .with_layout(&scene.mesh_layout)
             .render(&vs)
             .fragment(&fs)
             .add_vertex_buffer::<Vertex>(Vertex::ty().attrs())
             .hack_add_default_depth_stencil_state()
-            // .index_format(wgpu::IndexFormat::Uint32)
             // .depth_stencil()
             .build(&app.device);
 
@@ -56,7 +63,7 @@ impl Phong {
             .materials
             .iter()
             .filter(|mat| mat_filter(&mat.name))
-            .map(|mat| Material::new(app, &layout, &sampler, mat))
+            .map(|mat| Material::new(app, &mat_layout, &sampler, mat))
             .collect();
 
         let meshes = scene
@@ -79,10 +86,12 @@ impl Phong {
             .collect();
 
         Self {
-            layout,
-            sampler,
             pipeline,
+            depth,
+            mat_layout,
+            sampler,
 
+            scene,
             mats,
             meshes,
         }
@@ -91,53 +100,49 @@ impl Phong {
     pub fn encode(
         &self,
         frame: &mut Frame,
-        scene: &Scene,
-        depth: &wgpu::RawTextureView,
         target: &wgpu::RawTextureView,
     ) {
+        self.scene.update(frame);
+
         let mut pass = wgpu::util::RenderPassBuilder::new()
             .color_attachment(target, |c| c)
-            .depth_stencil_attachment(depth, |d| d)
+            .depth_stencil_attachment(&self.depth, |d| d)
             .begin(frame);
 
-        pass.set_pipeline(&self.pipeline);
-
-        scene.cam.bind(&mut pass, 0);
-
-        scene.lights.bind(&mut pass, 1);
-
-        for (mat, meshes) in self.mats.iter().zip(self.meshes.iter()) {
-            mat.bind(&mut pass, 2);
-
-            for i in meshes {
-                scene.meshes[*i].draw(&mut pass, 3);
-            }
-        }
+        self.encode_to_pass(&mut pass, target);
     }
 
     pub fn encode_load(
         &self,
         frame: &mut Frame,
-        scene: &Scene,
-        depth: &wgpu::RawTextureView,
         target: &wgpu::RawTextureView,
     ) {
+        self.scene.update(frame);
+
         let mut pass = wgpu::util::RenderPassBuilder::new()
-            .color_attachment(target, |c| c.color(|o| o.load()))
-            .depth_stencil_attachment(depth, |d| d)
+            .color_attachment(target, |c| c.color(|op| op.load()))
+            .depth_stencil_attachment(&self.depth, |d| d)
             .begin(frame);
 
+        self.encode_to_pass(&mut pass, target);
+    }
+
+    fn encode_to_pass<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        target: &wgpu::RawTextureView,
+    ) {
         pass.set_pipeline(&self.pipeline);
 
-        scene.cam.bind(&mut pass, 0);
+        self.scene.cam.bind(pass, 0);
 
-        scene.lights.bind(&mut pass, 1);
+        self.scene.lights.bind(pass, 1);
 
         for (mat, meshes) in self.mats.iter().zip(self.meshes.iter()) {
-            mat.bind(&mut pass, 2);
+            mat.bind(pass, 2);
 
             for i in meshes {
-                scene.meshes[*i].draw(&mut pass, 3);
+                self.scene.meshes[*i].draw(pass, 3);
             }
         }
     }

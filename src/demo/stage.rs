@@ -13,12 +13,13 @@ pub trait Stage {
     async fn event(&mut self, p: &mut Player, ev: Event);
     async fn key(&mut self, p: &mut Player, state: KeyState, key: Key);
 
-    fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView);
+    fn view(&mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, target: &wgpu::RawTextureView);
 }
 
 pub struct Stages {
     current: &'static str,
     scenes: HashMap<&'static str, Box<dyn Stage + Send>>,
+    first_init: bool,
 }
 
 impl Stages {
@@ -29,6 +30,7 @@ impl Stages {
         Self {
             current: initial,
             scenes,
+            first_init: false,
         }
     }
 
@@ -43,6 +45,10 @@ impl Stages {
     }
 
     pub async fn update(mut self, p: &mut Player, dt: f32) -> Self {
+        if !self.first_init {
+            self.current().init(p).await;
+            self.first_init = true;
+        }
         self.current().update(p, dt).await;
         self
     }
@@ -57,8 +63,8 @@ impl Stages {
         self
     }
 
-    pub fn view(mut self, frame: &mut Frame, view: &wgpu::RawTextureView) -> Self {
-        self.current().view(frame, view);
+    pub fn view(mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, target: &wgpu::RawTextureView) -> Self {
+        self.current().view(frame, depth, target);
         self
     }
 }

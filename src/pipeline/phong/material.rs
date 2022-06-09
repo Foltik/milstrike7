@@ -1,6 +1,6 @@
 use lib::app::App;
 
-use lib::math::Vector2;
+use lib::math::{Vector2, Vector4};
 
 use lib::gfx::material::{MaterialAttr, MaterialDesc};
 use lib::gfx::uniform::UniformStorage;
@@ -9,7 +9,9 @@ use lib::gfx::wgpu;
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct MaterialUniform {
+    pub color: Vector4,
     pub scale: Vector2,
+    pub mapped: u32,
     pub unlit: u32,
 }
 
@@ -37,7 +39,16 @@ impl Material {
             &app.device,
             &format!("material_{}", &desc.name),
             MaterialUniform {
+                color: match &desc.color {
+                    MaterialAttr::Value(v) => *v,
+                    _ => Vector4::new(1.0, 1.0, 1.0, 1.0),
+                },
                 scale,
+                mapped: if let MaterialAttr::Map(_) = &desc.color {
+                    1
+                } else {
+                    0
+                },
                 unlit: if desc.unlit { 1 } else { 0 },
             },
         );

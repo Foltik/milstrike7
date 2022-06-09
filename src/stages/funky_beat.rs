@@ -48,7 +48,7 @@ impl Stage for FunkyBeat {
         }
     }
 
-    fn view(&mut self, frame: &mut Frame, view: &wgpu::RawTextureView) {
+    fn view(&mut self, frame: &mut Frame, depth: &wgpu::RawTextureView, view: &wgpu::RawTextureView) {
         match self.segment {
             Segment::Init => {},
         }

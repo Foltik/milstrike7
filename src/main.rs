@@ -54,13 +54,15 @@ async fn model(app: &App) -> Model {
     };
 
     let mut stages: HashMap<&'static str, Box<dyn Stage + Send>> = HashMap::new();
+    stages.insert("test", Box::new(stages::Test::new(app)));
     stages.insert("test_segments", Box::new(stages::TestSegments::new(device)));
     stages.insert("test1", Box::new(stages::Test1::new(device)));
     stages.insert("test2", Box::new(stages::Test2::new(device)));
-    stages.insert("cyber_grind", Box::new(stages::CyberGrind::new(device)));
+    stages.insert("cyber_grind", Box::new(stages::CyberGrind::new(app)));
     stages.insert("funky_beat", Box::new(stages::FunkyBeat::new(device)));
 
-    let player = Player::new("ms7.dem", t0, "cyber_grind", stages).expect("failed to load demo");
+    let scene0 = "test";
+    let player = Player::new("ms7.dem", t0, scene0, stages).expect("failed to load demo");
 
     Model { player }
 }
@@ -81,6 +83,6 @@ async fn update(app: &App, m: &mut Model, dt: f32) {
     m.player.update(dt).await;
 }
 
-fn view(_app: &App, m: &mut Model, frame: &mut Frame, view: &wgpu::RawTextureView) {
-    m.player.view(frame, view);
+fn view(_app: &App, m: &mut Model, frame: &mut Frame, depth: &wgpu::RawTextureView, target: &wgpu::RawTextureView) {
+    m.player.view(frame, depth, target);
 }

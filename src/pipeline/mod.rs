@@ -9,3 +9,4 @@ mod toggle; pub use toggle::*;
 
 mod synth; pub use synth::*;
 mod filter; pub use filter::*;
+mod blit; pub use blit::*;
