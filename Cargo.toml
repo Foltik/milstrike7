@@ -8,6 +8,8 @@ edition = "2021"
 lib = { package = "phantoma", path = "../phantoma" }
 log = "0.4"
 
+immense = "0.1"
+
 cpal = "0.13"
 rodio = "0.15"
 rustfft = "6"

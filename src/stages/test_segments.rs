@@ -5,8 +5,8 @@ use crate::pipeline::{IsoTriPass, IsoTri};
 use crate::demo::{Event, Player, Stage};
 
 pub struct TestSegments {
-    strobe: Decay,
-    beat: Decay,
+    hat: Decay,
+    kick: Decay,
     t: f32,
     t_mul: f32,
 
@@ -24,8 +24,8 @@ enum Segment {
 impl TestSegments {
     pub fn new(device: &wgpu::Device) -> Self {
         Self {
-            strobe: Decay::new(25.0),
-            beat: Decay::new(200.0),
+            hat: Decay::new(25.0),
+            kick: Decay::new(200.0),
             t: 0.0,
             t_mul: 1.0,
 
@@ -64,25 +64,30 @@ impl Stage for TestSegments {
         };
 
         tri.update(self.t);
-        self.beat.update(dt);
-        self.strobe.update(dt);
+        self.kick.update(dt);
+        self.hat.update(dt);
 
-        if self.beat.off() {
+        if self.kick.off() {
             tri.r = 0.0;
-            tri.thickness = 0.5 + 0.5 * self.strobe.v();
+            tri.thickness = 0.5 + 0.5 * self.hat.v();
             tri.weight = 0.5;
         } else {
-            tri.r = self.beat.v();
-            tri.thickness = 0.5 + self.beat.v();
-            tri.weight = 0.5 + 0.5 * self.beat.v();
+            tri.r = self.kick.v();
+            tri.thickness = 0.5 + self.kick.v();
+            tri.weight = 0.5 + 0.5 * self.kick.v();
         }
     }
 
     async fn event(&mut self, p: &mut Player, ev: Event) {
         match ev {
-            Event::Snare => self.strobe.set(),
-            Event::Kick => self.beat.set(),
-            Event::Strobe => self.t_mul = 3.0,
+            Event::Beat { id: 61, t } => self.hat.set_t(t),
+            Event::Beat { id: 60, t } => self.kick.set_t(t),
+            // Event::Trigger { id: 63 } => self.segment = match self.segment {
+            //     Segment::Tri1 => Segment::Tri2,
+            //     Segment::Tri2 => Segment::Tri1,
+            // },
+
+            // Event::Strobe => self.t_mul = 3.0,
             _ => {},
         }
     }

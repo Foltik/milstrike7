@@ -3,10 +3,7 @@ use lib::gfx::pass::FilterPass;
 use lib::gfx::uniform::UniformStorage;
 use lib::gfx::wgpu;
 
-use lib::midi2::device::worlde_easycontrol9::Input;
-
-use crate::Time;
-use crate::{AlphaPass, BloomPass};
+use crate::pipeline::{AlphaPass, BloomPass};
 
 #[derive(Default, Clone, Copy)]
 #[repr(C)]
@@ -71,24 +68,24 @@ impl FxPass {
         }
     }
 
-    pub fn update(&mut self, time: &Time) {
-        self.state.t = time.t_rms();
-        self.state.tc = time.t();
+    pub fn update(&mut self, tc: f32, t: f32) {
+        self.state.tc = tc;
+        self.state.t = t;
         *self.invert_u = self.state.invert;
         *self.bloom = self.state.bloom;
     }
 
-    pub fn ctrl(&mut self, input: Input) {
-        match input {
-            Input::Slider(0, f) => *self.alpha = f,
-            Input::Slider(1, f) => self.state.bloom = f,
-            Input::Slider(2, f) => self.state.edge = f,
-            Input::Slider(3, f) => self.state.glitch = f,
-            Input::Slider(4, f) => self.state.vhs = f,
-            // Input::Slider(5, f) => self.state.pause = f,
-            _ => {},
-        }
-    }
+    // pub fn ctrl(&mut self, input: Input) {
+    //     match input {
+    //         Input::Slider(0, f) => *self.alpha = f,
+    //         Input::Slider(1, f) => self.state.bloom = f,
+    //         Input::Slider(2, f) => self.state.edge = f,
+    //         Input::Slider(3, f) => self.state.glitch = f,
+    //         Input::Slider(4, f) => self.state.vhs = f,
+    //         // Input::Slider(5, f) => self.state.pause = f,
+    //         _ => {},
+    //     }
+    // }
 
     pub fn view(&self) -> &wgpu::RawTextureView {
         self.edge.view(0)

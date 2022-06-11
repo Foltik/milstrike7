@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use lib::app::App;
 
 use lib::math::{Vector2, Vector4};
@@ -5,6 +7,7 @@ use lib::math::{Vector2, Vector4};
 use lib::gfx::material::{MaterialAttr, MaterialDesc};
 use lib::gfx::uniform::UniformStorage;
 use lib::gfx::wgpu;
+use lib::prelude::Frame;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
@@ -19,6 +22,7 @@ pub struct Material {
     pub name: String,
     pub uniform: UniformStorage<MaterialUniform>,
     group: wgpu::BindGroup,
+    dirty: Cell<bool>,
 }
 
 impl Material {
@@ -63,10 +67,33 @@ impl Material {
             name: desc.name.clone(),
             uniform,
             group,
+            dirty: Cell::new(false),
+        }
+    }
+
+    pub fn upload(&self, frame: &mut Frame) {
+        if self.dirty.get() {
+            self.uniform.upload(frame);
+            self.dirty.set(false);
         }
     }
 
     pub fn bind<'a>(&'a self, pass: &mut wgpu::RenderPass<'a>, group_idx: u32) {
         pass.set_bind_group(group_idx, &self.group, &[]);
+    }
+}
+
+impl std::ops::Deref for Material {
+    type Target = MaterialUniform;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.uniform
+    }
+}
+
+impl std::ops::DerefMut for Material {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.dirty.set(true);
+        &mut *self.uniform
     }
 }

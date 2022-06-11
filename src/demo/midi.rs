@@ -1,55 +1,60 @@
-use std::collections::VecDeque;
 use anyhow::Result;
+use std::collections::VecDeque;
 
-use apres::MIDI as MidiFile;
-use apres::MIDIEvent as MidiEvent;
 use apres::MIDIBytes as MidiBytes;
+use apres::MIDIEvent as MidiEvent;
+use apres::MIDI as MidiFile;
 
 use super::format::Event;
 
 impl Event {
-    pub fn from_midi(ev: MidiEvent) -> Option<Self> {
-        match ev {
-            MidiEvent::NoteOn(_ch, note, _vel) => {
-                match note {
-                    59 => Some(Event::Strobe),
-                    0..59 => Some(Event::Toggle { id: note }),
+    // pub fn from_midi(ev: MidiEvent) -> Option<Self> {
+    //     match ev {
+    //         MidiEvent::NoteOn(_ch, note, _vel) => {
+    //             match note {
+    //                 0..60 => Some(Event::Trigger { id: note }),
 
-                    60 => Some(Event::Kick),
-                    61 => Some(Event::Snare),
-                    62 => Some(Event::Hat),
-                    63.. => Some(Event::Trigger { id: note }),
-                }
-            },
-            _ => {
-                let bytes = ev.as_bytes();
-                match bytes[0] >> 4 {
-                    0xC => Some(Event::Program { id: bytes[1] }),
-                    0xE => {
-                        let lsb = bytes[1] as u16;
-                        let msb = bytes[2] as u16;
-                        Some(Event::Mod {
-                            id: bytes[0] & 0xF,
-                            fr: ((msb << 7) | lsb) as f32 / 16383.0,
-                        })
-                    },
-                    _ => None,
-                }
-            }
-        }
-    }
+    //                 60 => Some(Event::Kick),
+    //                 61 => Some(Event::Snare),
+    //                 62 => Some(Event::Hat),
+    //                 63.. => Some(Event::Trigger { id: note }),
+    //             }
+    //         },
+    //         _ => {
+    //             let bytes = ev.as_bytes();
+    //             match bytes[0] >> 4 {
+    //                 0xC => Some(Event::Program { id: bytes[1] }),
+    //                 0xE => {
+    //                     let lsb = bytes[1] as u16;
+    //                     let msb = bytes[2] as u16;
+    //                     Some(Event::Mod {
+    //                         id: bytes[0] & 0xF,
+    //                         fr: ((msb << 7) | lsb) as f32 / 16383.0,
+    //                     })
+    //                 },
+    //                 _ => None,
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 pub fn parse_events(file: &str) -> Result<Vec<(f32, Event)>> {
     let file = MidiFile::from_path(file).unwrap();
 
-    let mut midi: Vec<(usize, MidiEvent)> = file.get_tracks()
-        .pop().unwrap().into_iter()
+    let mut midi: Vec<(usize, MidiEvent)> = file
+        .get_tracks()
+        .pop()
+        .unwrap()
+        .into_iter()
         .map(|(tick, id)| (tick, file.get_event(id).unwrap()))
         .collect();
 
     let ticks_per_quarter = file.get_ppqn();
-    let mut us_per_quarter = 500_000;
+    // let mut us_per_quarter = 500_000;
+    // 141.371 BPM
+    // x0.5 = 70.6855
+    let mut us_per_quarter = 424415;
     let mut last = 0.0;
 
     let tick_t = |ticks: usize, us_per_quarter: u32| {
@@ -59,16 +64,62 @@ pub fn parse_events(file: &str) -> Result<Vec<(f32, Event)>> {
         t
     };
 
-    let mut events = Vec::new();
+    let mut midis = Vec::new();
     for (tick, midi) in midi.drain(..) {
         let t = last + tick_t(tick, us_per_quarter);
         last = t;
 
         match midi {
-            MidiEvent::SetTempo(tempo) => us_per_quarter = tempo,
-            _ => if let Some(event) = Event::from_midi(midi) {
-                events.push((t, event));
+            MidiEvent::SetTempo(tempo) => {
+                println!("Tempo: {}", 60.0 / (tempo as f32 / 1_000_000.0));
+                us_per_quarter = tempo;
             }
+            _ => midis.push((t, midi)),
+        }
+    }
+
+    let mut events = Vec::new();
+    for (i, (t0, midi)) in midis.iter().enumerate() {
+        if let Some(event) = match midi {
+            MidiEvent::NoteOn(_ch, id, _vel) => match id {
+                0..30 => Some(Event::Trigger { id: *id }),
+                30..60 => Some(Event::Toggle { id: *id, state: true }),
+                60.. => {
+                    let t1 = midis[i..]
+                        .iter()
+                        .find(|(t, midi)| match midi {
+                            MidiEvent::NoteOff(_, _id, _) => *_id == *id,
+                            _ => false,
+                        })
+                        .map(|(t, midi)| t)
+                        .unwrap_or(t0);
+
+                    Some(Event::Beat {
+                        id: *id,
+                        t: t1 - t0,
+                    })
+                }
+            },
+            MidiEvent::NoteOff(_ch, id, _vel) => match id {
+                30..60 => Some(Event::Toggle { id: *id, state: false }),
+                _ => None,
+            },
+            _ => {
+                let bytes = midi.as_bytes();
+                match bytes[0] >> 4 {
+                    0xE => {
+                        let lsb = bytes[1] as u16;
+                        let msb = bytes[2] as u16;
+                        Some(Event::Mod {
+                            id: bytes[0] & 0xF,
+                            fr: ((msb << 7) | lsb) as f32 / 16383.0,
+                        })
+                    }
+                    _ => None,
+                }
+            }
+        } {
+            events.push((*t0, event));
         }
     }
 

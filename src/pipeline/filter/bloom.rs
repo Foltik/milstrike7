@@ -36,7 +36,7 @@ impl BloomPass {
         }
     }
 
-    pub fn view(&self) -> &wgpu::RawTextureView {
+    pub fn view(&self,) -> &wgpu::RawTextureView {
         self.passthrough.view(0)
     }
 

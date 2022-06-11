@@ -1,19 +1,21 @@
-use lib::gfx::pass::SynthPass;
+use lib::gfx::pass::FilterPass;
 use lib::gfx::frame::Frame;
 use lib::gfx::wgpu;
 
 pub struct ClearPass {
-    synth: SynthPass,
+    color: wgpu::Color,
+    filter: FilterPass,
 }
 
 impl ClearPass {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(device: &wgpu::Device, color: wgpu::Color) -> Self {
         Self {
-            synth: SynthPass::new::<()>(device, "clear", "black.frag.spv", None),
+            color,
+            filter: FilterPass::new::<()>(device, "passthrough", "passthrough.frag.spv", None),
         }
     }
 
     pub fn encode(&self, frame: &mut Frame, view: &wgpu::RawTextureView) {
-        self.synth.encode(frame, view);
+        self.filter.encode_with(frame, view, |a| a.color(|c| c.clear(self.color)));
     }
 }

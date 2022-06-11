@@ -1,8 +1,10 @@
+use std::collections::HashMap;
+
 use lib::app::App;
 
 use lib::gfx::frame::Frame;
 use lib::gfx::mesh::{Vertex, VertexExt as _};
-use lib::gfx::scene::Scene;
+use lib::gfx::scene::{Scene, Node};
 use lib::gfx::wgpu;
 
 mod material;
@@ -17,6 +19,8 @@ pub struct Phong {
     pub scene: Scene,
     pub mats: Vec<Material>,
     pub meshes: Vec<Vec<usize>>,
+
+    pub mat_names: HashMap<String, usize>,
 }
 
 impl Phong {
@@ -58,7 +62,7 @@ impl Phong {
             // .depth_stencil()
             .build(&app.device);
 
-        let mats = scene
+        let mats: Vec<Material> = scene
             .desc
             .materials
             .iter()
@@ -66,7 +70,7 @@ impl Phong {
             .map(|mat| Material::new(app, &mat_layout, &sampler, mat))
             .collect();
 
-        let meshes = scene
+        let meshes: Vec<Vec<usize>> = scene
             .desc
             .materials
             .iter()
@@ -85,6 +89,10 @@ impl Phong {
             })
             .collect();
 
+        let mat_names = mats.iter().enumerate()
+            .map(|(i, mat)| (mat.name.clone(), i))
+            .collect();
+
         Self {
             pipeline,
             depth,
@@ -94,7 +102,17 @@ impl Phong {
             scene,
             mats,
             meshes,
+
+            mat_names,
         }
+    }
+
+    pub fn node(&mut self, name: &str) -> &mut Node {
+        self.scene.node_mut(name)
+    }
+
+    pub fn material(&mut self, name: &str) -> &mut Material {
+        &mut self.mats[self.mat_names[name]]
     }
 
     pub fn encode(
@@ -103,6 +121,10 @@ impl Phong {
         target: &wgpu::RawTextureView,
     ) {
         self.scene.update(frame);
+
+        for mat in &self.mats {
+            mat.upload(frame);
+        }
 
         let mut pass = wgpu::util::RenderPassBuilder::new()
             .color_attachment(target, |c| c)

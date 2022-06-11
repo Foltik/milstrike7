@@ -1,4 +1,5 @@
 #![feature(exclusive_range_pattern)]
+#![feature(stmt_expr_attributes)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
@@ -10,19 +11,21 @@ use lib::{prelude::*, window::WindowBuilder};
 
 mod pipeline;
 mod stages;
+mod util;
 
 mod demo;
 use demo::{Demo, Player, Stage, Stages};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() < 3 {
-        lib::app::run(window, model, input, update, view)?;
-    } else {
-        let audio_file = &args[1];
-        let midi_file = &args[2];
-        let demo_file = "resources/demos/ms7.dem";
-        Demo::new(audio_file, midi_file)?.save(demo_file)?;
+    match args.iter().find(|arg| arg.starts_with("--render")) {
+        None => lib::app::run(window, model, input, update, view)?,
+        Some(_) => {
+            let audio_file = &args[2];
+            let midi_file = &args[3];
+            let demo_file = "resources/demos/ms7.dem";
+            Demo::new(audio_file, midi_file)?.save(demo_file)?;
+        }
     }
 
     Ok(())
@@ -54,14 +57,16 @@ async fn model(app: &App) -> Model {
     };
 
     let mut stages: HashMap<&'static str, Box<dyn Stage + Send>> = HashMap::new();
-    stages.insert("test", Box::new(stages::Test::new(app)));
+    // stages.insert("test", Box::new(stages::Test::new(app)));
     stages.insert("test_segments", Box::new(stages::TestSegments::new(device)));
-    stages.insert("test1", Box::new(stages::Test1::new(device)));
-    stages.insert("test2", Box::new(stages::Test2::new(device)));
-    stages.insert("cyber_grind", Box::new(stages::CyberGrind::new(app)));
-    stages.insert("funky_beat", Box::new(stages::FunkyBeat::new(device)));
+    // stages.insert("test1", Box::new(stages::Test1::new(device)));
+    // stages.insert("test2", Box::new(stages::Test2::new(device)));
+    // stages.insert("cyber_grind", Box::new(stages::CyberGrind::new(app)));
+    stages.insert("funky_beat", Box::new(stages::FunkyBeat::new(app)));
 
-    let scene0 = "test";
+    // stages.insert("template", Box::new(stages::Template::new(app)));
+
+    let scene0 = "funky_beat";
     let player = Player::new("ms7.dem", t0, scene0, stages).expect("failed to load demo");
 
     Model { player }

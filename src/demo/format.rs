@@ -7,21 +7,10 @@ use std::{
 
 #[derive(Encode, Decode, Debug, Clone, Copy)]
 pub enum Event {
-    // Trigger
-    Kick,
-    Snare,
-    Hat,
     Trigger { id: u8 },
-
-    // Toggle
-    Strobe,
-    Toggle { id: u8 },
-
-    // CC
+    Beat { id: u8, t: f32 },
+    Toggle { id: u8, state: bool },
     Mod { id: u8, fr: f32 },
-
-    // Meta
-    Program { id: u8 },
 }
 
 #[derive(Encode, Decode, Debug, Clone, Copy)]

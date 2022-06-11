@@ -157,7 +157,7 @@ impl StencilPass {
 
             base: FilterPass::new_passthrough(device),
             composite: FilterPass::new_composite::<()>(device, "stencil_composite", 2, Some(COMPOSITE_SHADER), None),
-            clear: ClearPass::new(device),
+            clear: ClearPass::new(device, wgpu::Color::BLACK),
         }
     }
 

@@ -4,7 +4,7 @@ use lib::prelude::*;
 use crate::demo::{Event, Player, Scene};
 use crate::pipeline::*;
 
-pub struct Template {
+pub struct Cube {
     segment: Segment,
     t: f32,
     t_mul: f32,
@@ -14,10 +14,8 @@ enum Segment {
     Init,
 }
 
-impl Template {
-    pub fn new(app: &App) -> Self {
-        let device = &app.device;
-
+impl Cube {
+    pub fn new(device: &wgpu::Device) -> Self {
         Self {
             segment: Segment::Init,
             t: 0.0,
@@ -27,7 +25,7 @@ impl Template {
 }
 
 #[async_trait]
-impl Scene for Template {
+impl Scene for Cube {
     async fn init(&mut self, p: &mut Player) {}
 
     async fn update(&mut self, p: &mut Player, dt: f32) {
