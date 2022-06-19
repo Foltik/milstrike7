@@ -20,6 +20,7 @@ pub struct Fx {
     pub invert: f32,
     pub edge: f32,
     pub mega: f32,
+    pub shake: f32,
 }
 
 pub struct FxPass {

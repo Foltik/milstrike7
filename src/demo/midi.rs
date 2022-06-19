@@ -54,10 +54,10 @@ pub fn parse_events(file: &str) -> Result<Vec<(f32, Event)>> {
     // let mut us_per_quarter = 500_000;
     // 141.371 BPM
     // x0.5 = 70.6855
-    let mut us_per_quarter = 424415;
+    let mut us_per_quarter = 500_000.0;
     let mut last = 0.0;
 
-    let tick_t = |ticks: usize, us_per_quarter: u32| {
+    let tick_t = |ticks: usize, us_per_quarter: f32| {
         let us_per_tick = us_per_quarter as f32 / ticks_per_quarter as f32;
         let s_per_tick = us_per_tick / 1_000_000.0;
         let t = ticks as f32 * s_per_tick;
@@ -72,7 +72,7 @@ pub fn parse_events(file: &str) -> Result<Vec<(f32, Event)>> {
         match midi {
             MidiEvent::SetTempo(tempo) => {
                 println!("Tempo: {}", 60.0 / (tempo as f32 / 1_000_000.0));
-                us_per_quarter = tempo;
+                us_per_quarter = tempo as f32;
             }
             _ => midis.push((t, midi)),
         }

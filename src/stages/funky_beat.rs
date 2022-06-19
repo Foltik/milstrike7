@@ -95,7 +95,9 @@ impl FunkyBeat {
             .with("default", "da_mad_rave_italic.otf")
             .build(device);
         let mut tfx = FxPass::new(device, (640, 360));
-        tfx.vhs = 0.3;
+        tfx.vhs = cfg.f32("vhs");
+        tfx.bloom = cfg.f32("bloom");
+        // tfx.edge = 1.0;
         let clear = ClearPass::new(device, wgpu::Color::BLACK);
 
         let scene = Phong::new(app, "cuberoom.glb", |_node| true, |_mat| true);
@@ -244,6 +246,8 @@ impl Stage for FunkyBeat {
             Event::Trigger { id: 20 } => { count.inc("bock"); },
             Event::Trigger { id: 19 } => { count.inc("cut"); },
 
+            Event::Trigger { id: 10 } => p.go("thanks").await,
+
             Event::Mod { id: 0, fr } => self.fx.state.invert = fr,
             Event::Mod { id: 1, fr } => self.t_mul = 2.0 * fr,
 
@@ -257,14 +261,6 @@ impl Stage for FunkyBeat {
         }
 
         match key {
-            Key::Key1 => self.decay.set_t("edge", 0.5),
-            Key::Key2 => self.decay.set_t("shake", 0.5),
-            Key::Key3 => self.decay.set_t("glitch", 0.5),
-            Key::Key4 => self.decay.set_t("vhs", 0.5),
-            Key::Key5 => self.decay.set_t("pause", 0.5),
-            Key::Key6 => self.decay.set_t("red", 0.5),
-            Key::Key7 => self.decay.set_t("mega", 0.5),
-            Key::Key8 => self.decay.set_t("invert", 0.5),
             _ => {}
         }
     }
@@ -276,9 +272,6 @@ impl Stage for FunkyBeat {
         let decay = &self.decay;
         let count = &self.count;
         let cfg = &self.cfg;
-
-        let mx = 960.0;
-        let my = 540.0;
 
         if let Some(fr) = decay.vv("noise") {
             text(text0, "*kssh*", 80.0, cfg.v2("noise"), v4(1.0, 1.0, 1.0, fr)); }
@@ -366,8 +359,8 @@ impl Stage for FunkyBeat {
         ]);
 
         place_text(text1, count.v("fun-ky"), &[
-            ("fun",   cfg.f32("funkys"), cfg.v2("funky"), w),
-            ("funky", cfg.f32("funkys"), cfg.v2("funky"), w),
+            ("fun", cfg.f32("fun-kys0"), cfg.v2("fun-ky0"), w),
+            ("ky",  cfg.f32("fun-kys1"), cfg.v2("fun-ky1"), w),
         ]);
 
         place_text(text0, count.v("real"), &[
@@ -389,8 +382,8 @@ impl Stage for FunkyBeat {
                 ("on",   cfg.f32("bocks4"), cfg.v2("bock4"), fw),
             ]),
             (1, vec![
-                ("fun",   cfg.f32("funkys"), cfg.v2("funky"), w),
-                ("funky", cfg.f32("funkys"), cfg.v2("funky"), w),
+                ("fun", cfg.f32("fun-kys0"), cfg.v2("fun-ky0"), w),
+                ("ky",  cfg.f32("fun-kys1"), cfg.v2("fun-ky1"), w),
             ]),
         ]);
 
@@ -402,8 +395,8 @@ impl Stage for FunkyBeat {
                 ("it's", cfg.f32("cuts3"), cfg.v2("cut3"), fw),
             ]),
             (1, vec![
-                ("fun",   cfg.f32("funkys"), cfg.v2("funky"), w),
-                ("funky", cfg.f32("funkys"), cfg.v2("funky"), w),
+                ("fun", cfg.f32("fun-kys0"), cfg.v2("fun-ky0"), w),
+                ("ky",  cfg.f32("fun-kys1"), cfg.v2("fun-ky1"), w),
             ]),
         ]);
 

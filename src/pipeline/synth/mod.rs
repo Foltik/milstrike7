@@ -19,5 +19,6 @@ mod flash; pub use flash::*;
 mod tunnel; pub use tunnel::*;
 mod digits; pub use digits::*;
 mod substrate; pub use substrate::*;
+mod spiral; pub use spiral::*;
 
 mod vhs; pub use vhs::*;

@@ -8,9 +8,9 @@ use std::{
 #[derive(Encode, Decode, Debug, Clone, Copy)]
 pub enum Event {
     Trigger { id: u8 },
-    Beat { id: u8, t: f32 },
-    Toggle { id: u8, state: bool },
-    Mod { id: u8, fr: f32 },
+    Beat    { id: u8, t: f32 },
+    Toggle  { id: u8, state: bool },
+    Mod     { id: u8, fr: f32 },
 }
 
 #[derive(Encode, Decode, Debug, Clone, Copy)]
@@ -28,7 +28,7 @@ pub struct Data {
 pub struct Demo {
     pub meta: Metadata,
 
-    pub audio: Vec<Vec<f32>>,
+    pub vorbis: Vec<u8>,
     pub events: Vec<(f32, Event)>,
     pub data: Vec<(f32, Data)>,
 }
@@ -66,7 +66,8 @@ impl Demo {
         let events = super::midi::parse_events(midi)?;
 
         println!("Analyzing audio...");
-        let (sample_rate, audio) = super::audio::parse(audio)?;
+        let vorbis = std::fs::read(audio)?;
+        let (sample_rate, audio) = super::audio::decode(vorbis.clone())?;
         let data = super::audio::analyze(&audio, sample_rate, 1024);
         let peak_rms = data
             .iter()
@@ -82,7 +83,7 @@ impl Demo {
                 peak_rms,
             },
 
-            audio,
+            vorbis,
             events,
             data,
         })

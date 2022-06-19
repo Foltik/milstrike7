@@ -9,6 +9,7 @@ lib = { package = "phantoma", path = "../phantoma" }
 log = "0.4"
 
 immense = "0.1"
+palette = "0.6"
 
 cpal = "0.13"
 rodio = "0.15"

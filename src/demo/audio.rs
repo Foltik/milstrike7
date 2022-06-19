@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use parking_lot::{Condvar, Mutex};
 use std::fs::File;
-use std::io::BufReader;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::io::{BufReader, Read, Seek, Cursor};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::slice::Iter;
@@ -20,11 +20,13 @@ use super::{Data, Metadata};
 
 pub struct Stream {
     playing: Arc<AtomicBool>,
+    sample: Arc<AtomicU32>,
+    sample_rate: usize,
 }
 
 impl Stream {
     /// Start playing an audio stream
-    pub fn new(meta: Metadata, mut audio: Vec<Vec<f32>>, start: f32) -> Result<Self> {
+    pub fn new(meta: Metadata, vorbis: Vec<u8>, start: f32) -> Result<Self> {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
@@ -52,7 +54,11 @@ impl Stream {
         let buffer_size = Self::preflight(&device, &config)
             .context("stream preflight failed to read buffer size")?;
 
+        let (_, mut audio) = decode(vorbis)?;
         let mut resample = Resample::new(sample_rate_in, sample_rate_out, buffer_size)?;
+
+        let sample = Arc::new(AtomicU32::new(0));
+        let sample_inner = Arc::clone(&sample);
 
         let playing = Arc::new(AtomicBool::new(false));
         let playing_inner = Arc::clone(&playing);
@@ -63,11 +69,13 @@ impl Stream {
             let mut in_right = audio.remove(0).into_iter();
 
             // If `start` is set, skip over the correct number of samples
-            let skip = (start * meta.sample_rate as f32).round() as u32;
-            for _ in 0..skip {
+            let skip_in = (start * sample_rate_in as f32).round() as u32;
+            let skip_out = (start * sample_rate_out as f32).round() as u32;
+            for _ in 0..skip_in {
                 in_left.next().unwrap_or(0.0);
                 in_right.next().unwrap_or(0.0);
             }
+            sample_inner.store(skip_out, Ordering::SeqCst);
 
             let stream = device
                 .build_output_stream(
@@ -85,6 +93,7 @@ impl Stream {
                                 frame[0] = *out_left.next().unwrap_or(&0.0);
                                 frame[1] = *out_right.next().unwrap_or(&0.0);
                             }
+                            sample_inner.fetch_add(buffer_size as u32, Ordering::SeqCst);
                         }
                     },
                     |err| log::error!("{:?}", err),
@@ -98,7 +107,11 @@ impl Stream {
             }
         });
 
-        Ok(Self { playing })
+        Ok(Self {
+            playing,
+            sample,
+            sample_rate: sample_rate_out
+        })
     }
 
     /// Test-run a SupportedStreamConfig, returning the actual buffer size.
@@ -156,6 +169,11 @@ impl Stream {
     pub fn play(&self) {
         self.playing.store(true, Ordering::SeqCst);
     }
+
+    pub fn t(&self) -> f32 {
+        let sample = self.sample.load(Ordering::SeqCst);
+        sample as f32 / self.sample_rate as f32
+    }
 }
 
 pub struct Resample {
@@ -180,7 +198,7 @@ impl Resample {
 
                 resampler: None,
                 input: vec![],
-                output: vec![],
+                output: vec![vec![0.0; buffer_size], vec![0.0; buffer_size]],
             })
         } else {
             log::info!(
@@ -236,11 +254,8 @@ impl Resample {
     }
 }
 
-
-
-pub fn parse(file: &str) -> Result<(u32, Vec<Vec<f32>>)> {
-    let file = BufReader::new(File::open(file)?);
-    let decoder = Decoder::new(file)?;
+pub fn decode(data: Vec<u8>) -> Result<(u32, Vec<Vec<f32>>)> {
+    let decoder = Decoder::new(Cursor::new(data))?;
 
     let sample_rate = decoder.sample_rate();
     assert!(decoder.channels() == 2);
@@ -256,6 +271,13 @@ pub fn parse(file: &str) -> Result<(u32, Vec<Vec<f32>>)> {
 
     Ok((sample_rate, vec![left, right]))
 }
+
+// pub fn parse(file: &str) -> Result<(u32, Vec<Vec<f32>>)> {
+//     println!("reading {}", file);
+//     let file = BufReader::new(File::open(file)?);
+
+//     Ok(decode(file))
+// }
 
 pub fn analyze(audio: &Vec<Vec<f32>>, sample_rate: u32, fft_size: usize) -> Vec<(f32, Data)> {
     // Set up buffers for the complex FFT I/O, and result

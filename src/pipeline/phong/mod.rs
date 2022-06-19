@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use lib::app::App;
 
 use lib::gfx::frame::Frame;
+use lib::gfx::light::LightUniform;
 use lib::gfx::mesh::{Vertex, VertexExt as _};
 use lib::gfx::scene::{Scene, Node};
 use lib::gfx::wgpu;
@@ -115,6 +116,10 @@ impl Phong {
         &mut self.mats[self.mat_names[name]]
     }
 
+    pub fn light(&mut self, name: &str) -> &mut LightUniform {
+        self.scene.light_mut(name)
+    }
+
     pub fn encode(
         &self,
         frame: &mut Frame,
@@ -125,6 +130,7 @@ impl Phong {
         for mat in &self.mats {
             mat.upload(frame);
         }
+        self.scene.lights.upload(frame);
 
         let mut pass = wgpu::util::RenderPassBuilder::new()
             .color_attachment(target, |c| c)
@@ -140,6 +146,11 @@ impl Phong {
         target: &wgpu::RawTextureView,
     ) {
         self.scene.update(frame);
+
+        for mat in &self.mats {
+            mat.upload(frame);
+        }
+        self.scene.lights.upload(frame);
 
         let mut pass = wgpu::util::RenderPassBuilder::new()
             .color_attachment(target, |c| c.color(|op| op.load()))

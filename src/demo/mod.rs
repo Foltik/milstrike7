@@ -47,12 +47,12 @@ impl Player {
     ) -> Result<Self> {
         let Demo {
             meta,
-            audio,
+            vorbis,
             events,
             data,
         } = Demo::load_bytes(&lib::resource::read(file))?;
 
-        let stream = Arc::new(Stream::new(meta, audio, t0)?);
+        let stream = Arc::new(Stream::new(meta, vorbis, t0)?);
 
         Ok(Self {
             stages: Some(Stages::new(stage0, stages)),
@@ -80,28 +80,33 @@ impl Player {
             self.stages = Some(self.stages.take().unwrap().go(self, next).await);
         }
 
-        let mut events = SmallVec::<[Event; 8]>::new();
+        let t = self.stream.t();
+        let mut events = SmallVec::<[(f32, Event); 8]>::new();
 
         if self.playing {
             // Update data stream
-            while self.data_i < self.data.len() && self.data[self.data_i].0 <= self.t {
+            while self.data_i < self.data.len() && self.data[self.data_i].0 <= t {
                 self.rms = self.data[self.data_i].1.rms;
                 self.data_i += 1;
             }
 
             // Update event stream
-            while self.events_i < self.events.len() && self.events[self.events_i].0 <= self.t {
-                events.push(self.events[self.events_i].1);
+            while self.events_i < self.events.len() && self.events[self.events_i].0 <= t {
+                events.push(self.events[self.events_i]);
                 self.events_i += 1;
             }
 
-            self.t = self.t + dt;
+            self.t += dt;
         }
 
         // Dispatch events
-        for ev in events.into_iter().rev() {
-            log::debug!("Event: {:?}", ev);
+        for (et, ev) in events.into_iter() {
+            log::debug!("{:?} et={}, t={}, self.t={}, delta={}", ev, et, t, self.t, self.t - t);
             self.stages = Some(self.stages.take().unwrap().event(self, ev).await);
+
+            if let Some(next) = self.next_stage.take() {
+                self.stages = Some(self.stages.take().unwrap().go(self, next).await);
+            }
         }
 
         self.stages = Some(self.stages.take().unwrap().update(self, dt).await);
@@ -116,6 +121,11 @@ impl Player {
             self.playing = true;
             self.stream.play();
         }
+    }
+
+    pub async fn trigger(&mut self, ev: Event) {
+        // log::debug!("Trigger: {:?} t={}", ev, self.t);
+        self.stages = Some(self.stages.take().unwrap().event(self, ev).await);
     }
 
     pub async fn go(&mut self, to: &'static str) {
@@ -139,7 +149,7 @@ impl Player {
     }
 
     pub fn t(&self) -> f32 {
-        self.t
+        self.stream.t()
     }
 
     pub fn rms(&self) -> f32 {

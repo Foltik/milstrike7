@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use lib::{prelude::*, window::WindowBuilder};
+use lib::{prelude::*, window::WindowBuilder, midi2::device::worlde_easycontrol9::{WorldeEasyControl9, Input as MidiInput}};
 
 mod pipeline;
 mod stages;
@@ -33,13 +33,16 @@ fn main() -> Result<()> {
 
 pub struct Model {
     player: Player,
+    midi: Option<Midi<WorldeEasyControl9>>,
 }
 
 fn window(mut window: WindowBuilder) -> WindowBuilder {
     window = window.title("Millenium Strike 7");
 
-    if let Some(_) = std::env::args().find(|arg| arg.starts_with("-f")) {
-        window = window.fullscreen();
+    if let Some(_) = std::env::args().find(|arg| arg.starts_with("-w")) {
+        // windowed
+    } else {
+        window = window.fullscreen_borderless();
     }
 
     window
@@ -57,19 +60,51 @@ async fn model(app: &App) -> Model {
     };
 
     let mut stages: HashMap<&'static str, Box<dyn Stage + Send>> = HashMap::new();
-    // stages.insert("test", Box::new(stages::Test::new(app)));
-    stages.insert("test_segments", Box::new(stages::TestSegments::new(device)));
-    // stages.insert("test1", Box::new(stages::Test1::new(device)));
-    // stages.insert("test2", Box::new(stages::Test2::new(device)));
-    // stages.insert("cyber_grind", Box::new(stages::CyberGrind::new(app)));
+
+    // DONE
+    stages.insert("lobby", Box::new(stages::Lobby::new(app)));
+
+    // DONE
+    stages.insert("metalheart", Box::new(stages::Metalheart::new(app)));
+
+    // DONE
+    stages.insert("cyber_grind", Box::new(stages::CyberGrind::new(app)));
+
+    // DONE
+    stages.insert("halo", Box::new(stages::Halo::new(app)));
+
+    // TODO
+    stages.insert("aqua", Box::new(stages::Aqua::new(app)));
+
+    // DONE
+    stages.insert("reality", Box::new(stages::Reality::new(app)));
+
+    // DONE
+    stages.insert("pod", Box::new(stages::Pod::new(app)));
+
+    // TODO
+    stages.insert("chaostheory", Box::new(stages::Chaos::new(app)));
+
+    // INPROGRESS
+    stages.insert("dragonage", Box::new(stages::Dragon::new(app)));
+
+    // TODO
+    stages.insert("yume", Box::new(stages::Yume::new(app)));
+    stages.insert("resolve", Box::new(stages::Resolve::new(app)));
+
+    // DONE
     stages.insert("funky_beat", Box::new(stages::FunkyBeat::new(app)));
 
-    // stages.insert("template", Box::new(stages::Template::new(app)));
+    // TODO
+    stages.insert("thanks", Box::new(stages::Thanks::new(app)));
 
-    let scene0 = "funky_beat";
+    // let scene0 = "lobby";
+    let scene0 = "lobby";
     let player = Player::new("ms7.dem", t0, scene0, stages).expect("failed to load demo");
 
-    Model { player }
+    let midi = Midi::<WorldeEasyControl9>::maybe_open("WORLDE easy control", "WORLDE easy control");
+
+    Model { player, midi }
 }
 
 async fn input(app: &App, m: &mut Model, state: KeyState, key: Key) {
@@ -85,6 +120,15 @@ async fn input(app: &App, m: &mut Model, state: KeyState, key: Key) {
 }
 
 async fn update(app: &App, m: &mut Model, dt: f32) {
+    if let Some(midi) = m.midi.as_mut() {
+        for ev in midi.recv() {
+            match ev {
+                MidiInput::Slider(id, fr) => m.player.trigger(demo::Event::Mod { id, fr }).await,
+                _ => {}
+            }
+        }
+    }
+
     m.player.update(dt).await;
 }
 
